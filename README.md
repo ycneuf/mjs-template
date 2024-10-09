@@ -18,8 +18,12 @@ L'application d'une donnée nulle a un template génère un fragment HTML totale
  Toutefois, si le template indiqué n'existe pas, le moteur utilisera l'attribut `template-src`.
  
  Pour définir la donnée courante, il faut utiliser soit l'attribut `template-data`, soit l'attribute `template-data-src`.
- - `template-data="expression"` : la donnée courante est le résultat de l'évaluation de `expression``  
  - `template-data-src="url"` : la données courante est chargée depuis l'URL (format Json)
+ - `template-data="expression"` : la donnée courante est le résultat de l'évaluation de `expression``  
+ 
+Si `template-data-src`et `template-data` sont tous les deux présents, on télécharge d'abord la donnée avec `template-data-src`
+puis on la transforme en la remplaçant par le résultat de l'expression donnée par `template-data`.
+
 
  Lors de l'application de la donnée au template, les motifs `{expression}` dans les attributs ou dans les noeuds texte sont remplacés par le résultat de l'évaluation
  de l'expression.
