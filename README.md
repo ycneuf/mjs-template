@@ -20,8 +20,10 @@ L'application d'une donnée nulle a un template génère un fragment HTML totale
  Pour définir la donnée courante, il faut utiliser soit l'attribut `template-data`, soit l'attribute `template-data-src`.
  - `template-data="expression"` : la donnée courante est le résultat de l'évaluation de `expression``  
  - `template-data-src="url"` : la données courante est chargée depuis l'URL (format Json)
+
  Lors de l'application de la donnée au template, les motifs `{expression}` dans les attributs ou dans les noeuds texte sont remplacés par le résultat de l'évaluation
  de l'expression.
+ 
  L'expression doit être une expression javascript valide.
  Elle est evaluée dans la portée globale (donc `window`, `document` et toutes les variables globales sont accessibles).
  La variable `this` contient la donnée courante.
