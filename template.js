@@ -25,6 +25,7 @@ function consumeAttribute(element, attributeName) {
  * @returns the evaluation of the expression 
  */
 function evaluate(expression, data) {
+	console.log('evaluate expression', expression, 'this', data);
     try { 
         const fun = new Function('return ' + expression);
         return fun.apply(data);
@@ -51,14 +52,14 @@ function replace(text, data) {
 /**
  * Charge un template depuis une URL 
 */
-async function fetchTemplate(url) {
+function fetchTemplate(url) {
     return fetch(url)
     .then ( (response) => {
         if (response.ok) return response.text();
         else {
             console.warn('template', 'invalid template url', url, 'response', response);
-            // par défaut : élement vide
-            return '';
+            // par défaut :template vide
+            return document.createElement('template');
         }
     }).then ( (html) => {
        const templateElement = document.createElement('template');
@@ -70,7 +71,7 @@ async function fetchTemplate(url) {
 /**
  * Charge la donnée depuis une URL
  */
-async function fetchData(url) {
+function fetchData(url) {
     return fetch(url)
     .then ( (response) => {
         if (response.ok) return response.json();
@@ -88,7 +89,7 @@ async function fetchData(url) {
  * @param {HTMLElement} element 
  * @returns une instance de `HTMLTemplateElement` ou `null`
  */
-async function getTemplateElement(element) {
+function getTemplateElement(element) {
 
     // attribut 'template' ?
     if (element.hasAttribute('template')) {
@@ -110,8 +111,7 @@ async function getTemplateElement(element) {
         // récupère l'URL
         const url = consumeAttribute(element,'template-src');
         // charge le template
-        const templateElement = await fetchTemplate(url);
-        return templateElement;
+        return fetchTemplate(url);
     }
 
     // pas trouvé de template
@@ -126,6 +126,7 @@ async function getTemplateElement(element) {
  * 
  * @returns la donnée courante à utiliser à partir de cet élément  
  */
+
 async function getData(element, data) {
 	
 	// télécharge la donnée
@@ -134,7 +135,6 @@ async function getData(element, data) {
         url = replace(url, data);
         data = await fetchData(url);
     }
-	return data;
 	
     // transformation
     if (element.hasAttribute('template-data')) {
@@ -162,8 +162,9 @@ function getForeachData(element, data) {
         const expression = consumeAttribute(element,'template-foreach');
         const foreachData = evaluate(expression, data);
         
-        if (!Array.isArray(foreachData)) {
-            console.warn('template', 'ignore "foreach" attribute, because expression is not an array', foreachData, element);
+        // ce doit être un itérable 
+        if (data == null || !Array.isArray(data) || typeof data[Symbol.iterator] !== 'function') {
+            console.warn('template', 'ignore "foreach" attribute, because expression is not an iterable', foreachData, element);
             return null;
         }
         else {
@@ -259,15 +260,14 @@ async function applyElement(element, data) {
  * @return {Promise<HTMLElement>} promesse de *container*
  */
 async function applyTemplate(templateElement, container, data) {
-
-    // le contenu du container est écrasé
-    container.innerText = '';
-        
-    // clone le contenu du template
-    const fragment = templateElement.content.cloneNode(true);
+    // clone le contenu du template (lequel peut être une promesse)
+    const fragment = (await templateElement).content.cloneNode(true);
     return Promise.all(
         Array.from(fragment.children).map((child)=>applyElement(child, data))
     ).then ( () => {
+        // le contenu du container est détruit
+        container.innerText = '';
+        // et remplacé par le fragment
         container.appendChild(fragment);
         return container
     });
@@ -335,20 +335,30 @@ async function recursiveSearch(element, data) {
  * Cela signifie que les expressions seront interprétés avec `this == null`   
  * 
  * 
- * @param {HTMLTemplateElement | null} templateElement élément <template>
- * @param {HTMLElement | null} container élément HTML dont le contenu sera écrasé par le résultat de l'application du template
+ * @param {HTMLTemplateElement | string | Promise<HTMLTemplateElement> | null} templateElement élément <template>
+ * @param {HTMLElement | string | null} container élément HTML dont le contenu sera écrasé par le résultat de l'application du template
  * @param {object | number|string|symbol|bigint|boolean|null} data la donnée
  *  
+ * @returns {Promise<HTMLElement>} promesse du container transformé par le moteur de template
  */
-export default async function template(templateElement, container, data) {
+function run(templateElement, container, data) {
+	// conteneur par défaut
     if (container == null) container = document.body;
+    // conteneur désigné par son identifiant
+    else if (typeof container == 'string') container = document.getElementById(container);
+    
+    // si pas de template, on fait un scan du conteneur
     if (templateElement == null) {
-        return recursiveSearch(document.body, data);    
+        return recursiveSearch(document.body, data);
     }
+    // si le template est indiqué par son id
+    else if (typeof templateElement == 'string') {
+        return applyTemplate(document.getElementById(templateElement), container, data);
+    }
+    // sinon, méthode par défaut 
     else {
-        return applyTemplate(templateElement, container, data);
+        return applyTemplate(await templateElement, container, data);
     }
 }
 
-
-
+export {run, fetchTemplate}
