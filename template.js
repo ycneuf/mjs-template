@@ -38,7 +38,7 @@ function evaluate(expression, data) {
 /**
  * Détecte les motifs {expr} dans un texte et les remplace par l'évaluation de l'expression.
  * 
- * @param {string} text texte à remplacer
+ * @param {sune liste de valeur (objet Array) ou nulltring} text texte à remplacer
  * @param {*} data donnée courante  
  */
 function replace(text, data) {
@@ -148,11 +148,14 @@ async function getData(element, data) {
 }
 
 /**
+ * Récupère la donnée à itérer.
  * 
- * @param {HTMLElement} element
- * @param {*} data
+ * Un élement du template est un itérateur s'il a l'attribut *template-foreach*
  * 
- * @returns une liste de valeur (objet Array) ou null  
+ * @param {HTMLElement} element 
+ * @param {*} data la donnée à itérer
+ * 
+ * @returns {*} un itérable, ou _null_ si l'élément du template n'est pas un itérateur.   
  */
 function getForeachData(element, data) {
     if (element.hasAttribute('template-foreach')) {
@@ -177,7 +180,7 @@ function getForeachData(element, data) {
  * @param {HTMLElement} element à l'intérieur du clone d'un template
  * @param {*} data la donnée courante
  * 
- * @returns la promesse de l'élément qui remplace `element`, null si élement ignoré
+ * @returns {Promise<HTMLElement>|null} la promesse de l'élément qui remplace `element`, null si élement ignoré
  */
 async function applyElement(element, data) {
     
@@ -245,10 +248,15 @@ async function applyElement(element, data) {
 }
 
 /**
+ * Applique la données *data* à un template *templateElement*
  * 
- * @param {HTMLTemplateElement} templateElement
- * @param {HTMLElement} container
- * @param {*} data 
+ * Le résultat vient écraser le contenu de *container*.
+ * 
+ * @param {HTMLTemplateElement} templateElement template
+ * @param {HTMLElement} container l'élement dont le contenu sera écrasé
+ * @param {string|symbol|number|bigint|boolean|null} data la donnée à appliquer
+ * 
+ * @return {Promise<HTMLElement>} promesse de *container*
  */
 async function applyTemplate(templateElement, container, data) {
 
@@ -261,6 +269,7 @@ async function applyTemplate(templateElement, container, data) {
         Array.from(fragment.children).map((child)=>applyElement(child, data))
     ).then ( () => {
         container.appendChild(fragment);
+        return container
     });
 }
 
@@ -276,7 +285,7 @@ async function applyTemplate(templateElement, container, data) {
  * Cette donnée n'est cependant pas utilisée pour modifier les éléments en dehors d'un template.
  *
  * Donc, les motifs `{expression}' ainsi que les attributs `template-if` et `template-foreach` sont ignorés.
- * 
+ * une liste de valeur (objet Array) ou null
  * @param {HTMLElement} element élément HTML à partir duquel chercher`
  * @param {*} data donnée courante
  * 
@@ -311,7 +320,6 @@ async function recursiveSearch(element, data) {
     
     return element;
 }
-
     
 /**
  * Lance le moteur de template. 
