@@ -213,7 +213,7 @@ async function applyElement(element, data) {
         // créé un fragment pour contenir les clones
         const fragment = document.createDocumentFragment();
         // clone l'élement pour chaque valeur du foreach
-        await Promise.all(foreachData.map( (value) => {
+       await Promise.all(Array.from(foreachData).map( (value) => {
             const clone = element.cloneNode(true);
             fragment.appendChild(clone);
             return applyElement(clone, value);
