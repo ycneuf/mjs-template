@@ -25,7 +25,6 @@ function consumeAttribute(element, attributeName) {
  * @returns the evaluation of the expression 
  */
 function evaluate(expression, data) {
-	console.log('evaluate expression', expression, 'this', data);
     try { 
         const fun = new Function('return ' + expression);
         return fun.apply(data);
@@ -253,7 +252,7 @@ async function applyElement(element, data) {
  * 
  * Le résultat vient écraser le contenu de *container*.
  * 
- * @param {HTMLTemplateElement} templateElement template
+ * @param {HTMLTemplateElement|Promise<HTMLTemplateElement>} templateElement template
  * @param {HTMLElement} container l'élement dont le contenu sera écrasé
  * @param {string|symbol|number|bigint|boolean|null} data la donnée à appliquer
  * 
@@ -261,7 +260,12 @@ async function applyElement(element, data) {
  */
 async function applyTemplate(templateElement, container, data) {
     // clone le contenu du template (lequel peut être une promesse)
-    const fragment = (await templateElement).content.cloneNode(true);
+	templateElement = await templateElement;
+	if (! (templateElement instanceof HTMLTemplateElement)) {
+		console.warn('Invalid template element', templateElement);
+		templateElement = document.createElement('template');
+	}
+    const fragment = templateElement.content.cloneNode(true);
     return Promise.all(
         Array.from(fragment.children).map((child)=>applyElement(child, data))
     ).then ( () => {
@@ -353,11 +357,13 @@ function run(templateElement, container, data) {
     }
     // si le template est indiqué par son id
     else if (typeof templateElement == 'string') {
-        return applyTemplate(document.getElementById(templateElement), container, data);
+    	const element = document.getElementById(templateElement);
+    	if (element == null) console.warn('template', 'template not found', templateElement);
+        return applyTemplate(element, container, data);
     }
     // sinon, méthode par défaut 
     else {
-        return applyTemplate(await templateElement, container, data);
+        return applyTemplate(templateElement, container, data);
     }
 }
 
