@@ -280,7 +280,7 @@ async function applyTemplate(templateElement, container, data) {
  * @param {HTMLElement} element élément HTML à partir duquel chercher`
  * @param {*} data donnée courante
  * 
- * @returns la promesse de l'élément après application du template
+ * @returns {Promise<HTMLElement>} la promesse de l'élément après application du template
   */
 async function recursiveSearch(element, data) {
     
@@ -301,6 +301,17 @@ async function recursiveSearch(element, data) {
         // applique le template, avec la donnée courante
         await applyTemplate(templateElement, element, data);     
     }
+     
+    // pas de template : on continue la recherche récursive
+    else {
+        // lance récursivement la recherche sur chaque enfant
+        // et attend que ce soit fini
+        await Promise.all(Array.from(element.children).map( (child) => recursiveSearch(child)));
+    }
+    
+    return element;
+}
+
     
 /**
  * Lance le moteur de template. 
@@ -308,20 +319,27 @@ async function recursiveSearch(element, data) {
  * Les trois paramètres sont optionnels.
  * 
  * Si *templateElement* est omis, le moteur cherchera récursivement dans la descendance de *container*
- * les éléménts qui ont un attribut _template_ ou _template-src_.
+ * les éléments qui ont un attribut _template_ ou _template-src_.
  * 
  * La valeur par défaut de *container* est `document.body`.
  * 
  * Il n'y a pas de valeur par défaut pour *data*. Une donnée nulle est valide.
  * Cela signifie que les expressions seront interprétés avec `this == null`   
  * 
- * @param {HTMLTemplateElement | string | null} templateElement élément <template> ou identifiant de l'élément dans le document.
- * @param {HTMLElement | string | null} container élément dont le contenu sera écrasé par le résultat de l'application du template
- * @param {object|number|string|symbol|bigint|boolean|null} la donnée
+ * 
+ * @param {HTMLTemplateElement | null} templateElement élément <template>
+ * @param {HTMLElement | null} container élément HTML dont le contenu sera écrasé par le résultat de l'application du template
+ * @param {object | number|string|symbol|bigint|boolean|null} data la donnée
  *  
  */
 export default async function template(templateElement, container, data) {
-    return recursiveSearch(document.body);
+    if (container == null) container = document.body;
+    if (templateElement == null) {
+        return recursiveSearch(document.body, data);    
+    }
+    else {
+        return applyTemplate(templateElement, container, data);
+    }
 }
 
 
