@@ -126,25 +126,25 @@ async function getTemplateElement(element) {
  * 
  * @returns la donnée courante à utiliser à partir de cet élément  
  */
-
 async function getData(element, data) {
-    // si la donnée courante est redéfinie par une expression
+	
+	// télécharge la donnée
+	if (element.hasAttribute('template-data-src')) {
+        let url = consumeAttribute(element,'template-data-src');
+        url = replace(url, data);
+        data = await fetchData(url);
+    }
+	return data;
+	
+    // transformation
     if (element.hasAttribute('template-data')) {
         const expression = consumeAttribute(element,'template-data');
         // retourne l'évaluation de l'expression
-        const newData = evaluate(expression, data);
-        return newData;
+        data = evaluate(expression, data);
     }
-    // sinon, si la donnée courante est à téléchargerconsumeAttribute(
-    else if (element.hasAttribute('template-data-src')) {
-        let url = consumeAttribute(element,'template-data-src');
-        url = replace(url, data);
-        return fetchData(url);
-    }
-    // sinon, on ne change pas la donnée
-    else {
-        return data;
-    }
+    
+    // retourne la donnée (même si elle n'a pas changé)
+    return data;
 }
 
 /**
