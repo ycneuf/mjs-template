@@ -161,8 +161,11 @@ async function getData(element, data) {
 async function getIterable(element, data) {
     // Un élement du template est un itérateur s'il a l'attribut *template-foreach*
     if (element.hasAttribute('template-foreach')) {
+        // recupère l'expression
         const expression = consumeAttribute(element,'template-foreach');
+        // calcul la valeur de l'expression
         const iterable = await evaluate(expression, data);
+        // Un itérable est un objet, soit de la classe Array, soit qui implémente le protocole iterable
         if (typeof iterable == 'object' && (Array.isArray(iterable) || Symbol.iterator in iterable)) {
             return iterable;
         }
