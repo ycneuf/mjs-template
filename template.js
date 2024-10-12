@@ -21,14 +21,13 @@ function consumeAttribute(element, attributeName) {
  * Evalue une expression
  * 
  * @param {string} expression expression à évaluer
- * @param {*} data `this` dans l'expression
+ * @param {*} data la variable `data` dans l'expression
  * @returns {Promise} l'évaluation de l'expression 
  */
 async function evaluate(expression, data) {
-    console.log('evaluate', expression, 'with', data);
     try { 
         const fun = new Function('return ' + expression);
-        return fun.apply(data);
+        return fun.apply(null, data);
     } catch (error) {
         console.warn('template', 'invalid expression', expression, 'with data', data, error);
         return null;
