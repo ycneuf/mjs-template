@@ -82,8 +82,8 @@ async function fetchData(url) {
         if (response.ok) return response.json();
         else {
             console.warn('template', 'invalid data url', url, 'response', response);
-            // par défaut : objet vide
-            return {};
+            // par défaut : null
+            return null;
         }
     });
 }
