@@ -131,7 +131,6 @@ async function getTemplate(element) {
  * 
  * @returns la donnée courante à utiliser à partir de cet élément  
  */
-
 async function getData(element, data) {
     // si la donnée courante est redéfinie par une expression
     if (element.hasAttribute('template-data')) {
@@ -278,12 +277,12 @@ async function processElement(element, data) {
  * Le résultat de l'application remplace le contenu du conteneur.
  * 
  * @param {HTMLTemplateElement} template template HTML
- * @param {HTMLElement} container conteneur dont le contenu est à remplacer par le résultat
+ * @param {HTMLElement} element element qui sera remplacé par le résulat
  * @param {*} data donnée à appliquer au template  
  * 
- * @returns {Promise<HTMLElement>} le conteneur avec son nouveau contenu
+ * @returns {Promise} fin de l'application
  */
-async function apply(template, container, data) {
+async function apply(template, element, data) {
     // clone le contenu du template
     const fragment = template.content.cloneNode(true);
     // une promesse par élément enfant du fragment
@@ -291,13 +290,11 @@ async function apply(template, container, data) {
         // applique la donnée à chaque enfant
         Array.from(fragment.children).map((child)=>processElement(child, data))
     ).then ( () => {
-        // 
-        container.innerText = '';
-        // attache le fragment au conteneur
-        // (en fait, appendChild va attacher les enfants du frament)
-        container.appendChild(fragment);
-        // retourne le conteneur après application
-        return container
+        // insère le fragment
+        // (en fait, after va insérer les enfants du frament) 
+        element.after(fragment);
+        // supprime l'élément
+        element.remove();
     });
 }
 
