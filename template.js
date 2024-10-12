@@ -25,6 +25,7 @@ function consumeAttribute(element, attributeName) {
  * @returns {Promise} l'évaluation de l'expression 
  */
 async function evaluate(expression, data) {
+    console.log('evaluate', expression, 'with', data);
     try { 
         const fun = new Function('return ' + expression);
         return fun.apply(data);
@@ -54,7 +55,7 @@ async function inject(text, data) {
     
 }
 /**
- * Charge un template depuis une URL 
+ * Charge un template depuis une URL
 */
 async function fetchTemplate(url) {
     return fetch(url)
@@ -62,8 +63,8 @@ async function fetchTemplate(url) {
         if (response.ok) return response.text();
         else {
             console.warn('template', 'invalid template url', url, 'response', response);
-            // par défaut : élement vide
-            return '';
+            // par défaut : vide
+            return null;
         }
     }).then ( (html) => {
        const templateElement = document.createElement('template');
