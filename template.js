@@ -171,9 +171,14 @@ async function getIterable(element, data) {
         }
         else {
             console.warn('template engine ignore "foreach" directive in element ', element, ' because evaluated expression is not iterable : ', iterable);
+            // retourne une liste vide
+            return [];
         } 
     }
-    return null;
+    else {
+        // retourne null pour dire que ce n'est pas un itérateur
+        return null;
+    }
 }
 
 async function getCondition(element, data) {
@@ -194,7 +199,7 @@ async function getCondition(element, data) {
  * @param {HTMLElement} element un élément à l'intérieur d'un template
  * @param {*} data la donnée
  * 
- * @returns {Promise<HTMLELement>} l'élément qui vient remplacer `element`
+ * @returns {Promise<HTMLELement | null>} l'élément qui vient remplacer `element`
  */
 async function processElement(element, data) {
     
@@ -225,7 +230,14 @@ async function processElement(element, data) {
         // le résultat de tout ça est le fragment qui remplace l'élément        
         return await Promise.all(Array.from(iterable).map( (data) => processElement(element.cloneNode(true), data)))
         .then ( (clones) => {
-            // création d'un fragment HTML pour insérer un ensemble d'éléments
+            // si aucun clone
+            if (clones.length < 1) {
+                // supprime simplement l'élément
+                element.remove();
+                // et retourne null (pas de remplaçant)
+                return null;
+            }
+            // création d'un fragment HTML pour insérer un ensemble d'élément
             const fragment = document.createDocumentFragment();
             for(const clone of clones) {
                 fragment.appendChild(clone);
