@@ -26,8 +26,8 @@ function consumeAttribute(element, attributeName) {
  */
 async function evaluate(expression, data) {
     try { 
-        const fun = new Function('return ' + expression);
-        return fun.apply(null, data);
+        const fun = new Function('data', 'return ' + expression);
+        return fun.apply(null, [data]);
     } catch (error) {
         console.warn('template', 'invalid expression', expression, 'with data', data, error);
         return null;
@@ -166,17 +166,14 @@ async function getIterable(element, data) {
         // calcul la valeur de l'expression
         const iterable = await evaluate(expression, data);
         // Un itérable est un objet, soit de la classe Array, soit qui implémente le protocole iterable
-        if (typeof iterable == 'object' && (Array.isArray(iterable) || Symbol.iterator in iterable)) {
+        if (iterable != null && typeof iterable == 'object' && (Array.isArray(iterable) || Symbol.iterator in iterable)) {
             return iterable;
         }
         else {
-            console.warn('template engine ignore "foreach" directive in element ', element, ' because evaluated expression is not iterable : ', iterable); 
-            return null;
-        }
+            console.warn('template engine ignore "foreach" directive in element ', element, ' because evaluated expression is not iterable : ', iterable);
+        } 
     }
-    else {
-        return null;
-    }
+    return null;
 }
 
 async function getCondition(element, data) {
