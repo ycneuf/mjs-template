@@ -22,43 +22,48 @@ function consumeAttribute(element, attributeName) {
  * 
  * @param {string} expression expression à évaluer
  * @param {*} data `this` dans l'expression
- * @returns the evaluation of the expression 
+ * @returns {Promise} l'évaluation de l'expression 
  */
-function evaluate(expression, data) {
+async function evaluate(expression, data) {
     try { 
         const fun = new Function('return ' + expression);
         return fun.apply(data);
     } catch (error) {
-        console.error(error);
-        console.warn('template', 'invalid expression', expression, 'with data', data);
+        console.warn('template', 'invalid expression', expression, 'with data', data, error);
         return null;
     }
 }
 
 /**
- * Détecte les motifs {expr} dans un texte et les remplace par l'évaluation de l'expression.
+ * Injecte la donnée dans un texte.
  * 
- * @param {sune liste de valeur (objet Array) ou nulltring} text texte à remplacer
- * @param {*} data donnée courante  
+ * @param {string} text le texte dans lequel injecter la donnée
+ * @param {*} data la donnée à injecter
+ * 
+ * @returns {Promise<string>} le texte après injection de la donnée
+ *  
  */
-function replace(text, data) {
-    // retourne le résultat du remplacement
-    return text.replaceAll(/{([^}]+)}/g, (pattern, expression) => {
-        return evaluate(expression, data);
+async function inject(text, data) {
+    const matches = {};
+    return Promise.all(text.matchAll(/{([^}]+)}/g).map((match) => evaluate(match[1], data).then( (value) =>  matches[match[0]] = value ))) 
+    .then( ()  => {
+        return text.replaceAll(/{[^}]+}/g, (pattern) => {
+            return matches[pattern];
+        });          
     });
+    
 }
-
 /**
  * Charge un template depuis une URL 
 */
-function fetchTemplate(url) {
+async function fetchTemplate(url) {
     return fetch(url)
     .then ( (response) => {
         if (response.ok) return response.text();
         else {
             console.warn('template', 'invalid template url', url, 'response', response);
-            // par défaut :template vide
-            return document.createElement('template');
+            // par défaut : élement vide
+            return '';
         }
     }).then ( (html) => {
        const templateElement = document.createElement('template');
@@ -70,7 +75,7 @@ function fetchTemplate(url) {
 /**
  * Charge la donnée depuis une URL
  */
-function fetchData(url) {
+async function fetchData(url) {
     return fetch(url)
     .then ( (response) => {
         if (response.ok) return response.json();
@@ -88,7 +93,7 @@ function fetchData(url) {
  * @param {HTMLElement} element 
  * @returns une instance de `HTMLTemplateElement` ou `null`
  */
-function getTemplateElement(element) {
+async function getTemplate(element) {
 
     // attribut 'template' ?
     if (element.hasAttribute('template')) {
@@ -110,7 +115,8 @@ function getTemplateElement(element) {
         // récupère l'URL
         const url = consumeAttribute(element,'template-src');
         // charge le template
-        return fetchTemplate(url);
+        const templateElement = await fetchTemplate(url);
+        return templateElement;
     }
 
     // pas trouvé de template
@@ -127,244 +133,208 @@ function getTemplateElement(element) {
  */
 
 async function getData(element, data) {
-	
-	// télécharge la donnée
-	if (element.hasAttribute('template-data-src')) {
-        let url = consumeAttribute(element,'template-data-src');
-        url = replace(url, data);
-        data = await fetchData(url);
-    }
-	
-    // transformation
+    // si la donnée courante est redéfinie par une expression
     if (element.hasAttribute('template-data')) {
         const expression = consumeAttribute(element,'template-data');
         // retourne l'évaluation de l'expression
-        data = evaluate(expression, data);
+        return evaluate(expression, data);
     }
-    
-    // retourne la donnée (même si elle n'a pas changé)
-    return data;
+    // sinon, si la donnée courante est à téléchargerconsumeAttribute(
+    else if (element.hasAttribute('template-data-src')) {
+        let url = consumeAttribute(element,'template-data-src');
+        url = await inject(url, data);
+        return fetchData(url);
+    }
+    // sinon, on ne change pas la donnée
+    else {
+        return data;
+    }
 }
 
 /**
  * Récupère la donnée à itérer.
  * 
- * Un élement du template est un itérateur s'il a l'attribut *template-foreach*
- * 
  * @param {HTMLElement} element 
- * @param {*} data la donnée à itérer
+ * @param {*} data la donnée
  * 
- * @returns {*} un itérable, ou _null_ si l'élément du template n'est pas un itérateur.   
+ * @returns {Promise<object|null>} un itérable, ou _null_ si l'élément du template n'est pas un itérateur.   
  */
-function getForeachData(element, data) {
+async function getIterable(element, data) {
+    // Un élement du template est un itérateur s'il a l'attribut *template-foreach*
     if (element.hasAttribute('template-foreach')) {
         const expression = consumeAttribute(element,'template-foreach');
-        const foreachData = evaluate(expression, data);
-        
-        // ce doit être un itérable 
-        if (data == null || !Array.isArray(data) || typeof data[Symbol.iterator] !== 'function') {
-            console.warn('template', 'ignore "foreach" attribute, because expression is not an iterable', foreachData, element);
-            return null;
+        const iterable = await evaluate(expression, data);
+        if (typeof iterable == 'object' && (Array.isArray(iterable) || Symbol.iterator in iterable)) {
+            return iterable;
         }
         else {
-            return foreachData;
-        }
-    }
-}
-
-/**
- * Applique la données courante à un élement du template.
- * 
- * L'élément est remplacé par le résutat, ou simplement supprimé si le résultat est vide.
- * 
- * @param {HTMLElement} element à l'intérieur du clone d'un template
- * @param {*} data la donnée courante
- * 
- * @returns {Promise<HTMLElement>|null} la promesse de l'élément qui remplace `element`, null si élement ignoré
- */
-async function applyElement(element, data) {
-    
-    // dans les attributs de l'élément, substitue les motifs {expression} par leurs évaluations
-    for ( const attribute of element.attributes ) {
-       attribute.value =  replace(attribute.value, data);
-    };
-    
-    // vérifie la condition de prise en compte
-    if (element.hasAttribute('template-if')) {
-        // récupère l'expression
-        const expression = consumeAttribute(element,'template-if');
-        // evalue la condition
-        const condition = evaluate(expression, data);
-        // si la condition est fausse (`false` ou équivalent)
-        // l'élement est simplement supprimé
-        // et l'application s'arrête là
-        if (!condition) {
-            element.remove();
+            console.warn('template engine ignore "foreach" directive in element ', element, ' because evaluated expression is not iterable : ', iterable); 
             return null;
         }
     }
-
-    // met à jour la donnée courante
-    data = await getData(element, data);
-    
-    // détecte si on veut répéter l'élement
-    const foreachData = getForeachData(element, data);
-    if (foreachData) {
-        // créé un fragment pour contenir les clones
-        const fragment = document.createDocumentFragment();
-        // clone l'élement pour chaque valeur du foreach
-       await Promise.all(Array.from(foreachData).map( (value) => {
-            const clone = element.cloneNode(true);
-            fragment.appendChild(clone);
-            return applyElement(clone, value);
-        }));
-        // le fragment remplace l'élément
-        element.after(fragment);
-        // plus besoin de l'élément : il a été cloné
-        element.remove();
-        //retourne le fragment qui remplace l'élément
-        return fragment;        
+    else {
+        return null;
     }
-        
-    // si un template doit être appliqué ... applique le 
-    const templateElement = await getTemplateElement(element);
-    if (templateElement) {
-        return applyTemplate(templateElement, element, data);   
-    }
-    
-    // dans les noeuds texte, enfant de l'élément,
-    // substitue les motifs {expression} par leurs évaluations
-     for ( const child of element.childNodes ) {
-        if (child.nodeType == Node.TEXT_NODE) {
-            child.nodeValue = replace(child.nodeValue, data);
-        }
-     }
-     
-     // applique récursivement aux enfants
-     await Promise.all(Array.from(element.children).map( (child) => applyElement(child, data)));
+}
 
-     // l'élément n'est pas remplacé
-     return element;
+async function getCondition(element, data) {
+    if (element.hasAttribute('template-if')) {
+        const expression = element.getAttribute('template-if');
+        const condition = await evaluate(expression, data);
+        if (condition) return true;
+        else return false;
+    }
+    else {
+        return true;
+    }
 }
 
 /**
- * Applique la données *data* à un template *templateElement*
+ * Traite un élement à l'intérieur d'un template
  * 
- * Le résultat vient écraser le contenu de *container*.
+ * @param {HTMLElement} element un élément à l'intérieur d'un template
+ * @param {*} data la donnée
  * 
- * @param {HTMLTemplateElement|Promise<HTMLTemplateElement>} templateElement template
- * @param {HTMLElement} container l'élement dont le contenu sera écrasé
- * @param {string|symbol|number|bigint|boolean|null} data la donnée à appliquer
- * 
- * @return {Promise<HTMLElement>} promesse de *container*
+ * @returns {Promise<HTMLELement>} l'élément qui vient remplacer `element`
  */
-async function applyTemplate(templateElement, container, data) {
-    // clone le contenu du template (lequel peut être une promesse)
-	templateElement = await templateElement;
-	if (! (templateElement instanceof HTMLTemplateElement)) {
-		console.warn('Invalid template element', templateElement);
-		templateElement = document.createElement('template');
-	}
-    const fragment = templateElement.content.cloneNode(true);
+async function processElement(element, data) {
+    
+    // pour commencer, templatise les attributs
+    // pour chaque attribut, utilise la fonction inject() pour injecter la donnée
+    // puis, à chaque fois que ce remplacement est fait, la valeur obtenue remplace la valeur de l'attribut
+    await Promise.all(Array.from(element.attributes).map ((attribute)=>inject(attribute.value, data).then((value) => attribute.value=value)));
+
+            
+    // évalue la condition de traitement de cet élément
+    const condition = await getCondition(element, data); 
+    if (!condition) {
+        // si l'élément doit être ignoré, il est supprimé
+        element.remove();
+        // retourne null pour dire que cet élément n'est pas pris en compte
+        return null;
+    } 
+
+    // met à jour la donnée
+    data = await getData(element, data);
+    
+    // vérifie si on doit dupliquer cet élément
+    const iterable = await getIterable(element, data);
+    if (iterable) {
+        // chaque donnée induit la création d'un clone
+        // les clones sont traités en parallèle, chacun recevant un membre de l'itérable
+        // on attend que tous les clones soient traités avant de continuer
+        // le résultat de tout ça est le fragment qui remplace l'élément        
+        return await Promise.all(Array.from(iterable).map( (data) => processElement(element.cloneNode(true), data)))
+        .then ( (clones) => {
+            // création d'un fragment HTML pour insérer un ensemble d'éléments
+            const fragment = document.createDocumentFragment();
+            for(const clone of clones) {
+                fragment.appendChild(clone);
+            }
+            element.after(fragment);
+            element.remove();
+            return fragment;
+        });
+    }
+
+    // récupère le template à utiliser pour reconstruire cet élément
+    const template = await getTemplate(element, data);
+    if (template) {
+        // construit un fragment pour y construire le résultat
+        // de l'application du template
+        const fragment = document.createDocumentFragment();
+        // applique le template
+        await apply(template, fragment, data);
+        // insére le fragment
+        element.after(fragment);
+        // supprime l'élément (il est remplacé par le fragment)
+        remove(element);
+        // retourne le fragment qui remplace l'élément
+        return fragment;
+    }
+    
+    // pas de template à appliquer
+    // alors on descend dans l'élément
+    await Promise.all(Array.from(element.childNodes).map( (child) => {
+        switch (child.nodeType) {
+            case Node.TEXT_NODE :
+                // si c'est un noeud texte, utilise la fonction inject()
+                // pour injecter la donnée
+                return inject(child.nodeValue, data).then( (value) => child.nodeValue = value);
+            case Node.ELEMENT_NODE :
+                // si c'est un élément, on le traite
+                return processElement(child, data);
+        }
+    }));                 
+
+    // si on est arrivé ici, c'est que l'élément passé en argument
+    // n'a été ni supprimé, ni remplacé
+    return element;    
+}
+
+/**
+ * Applique un template.
+ * 
+ * Le résultat de l'application remplace le contenu du conteneur.
+ * 
+ * @param {HTMLTemplateElement} template template HTML
+ * @param {HTMLElement} container conteneur dont le contenu est à remplacer par le résultat
+ * @param {*} data donnée à appliquer au template  
+ * 
+ * @returns {Promise<HTMLElement>} le conteneur avec son nouveau contenu
+ */
+async function apply(template, container, data) {
+    // clone le contenu du template
+    const fragment = template.content.cloneNode(true);
+    // une promesse par élément enfant du fragment
     return Promise.all(
-        Array.from(fragment.children).map((child)=>applyElement(child, data))
+        // applique la donnée à chaque enfant
+        Array.from(fragment.children).map((child)=>processElement(child, data))
     ).then ( () => {
-        // le contenu du container est détruit
+        // 
         container.innerText = '';
-        // et remplacé par le fragment
+        // attache le fragment au conteneur
+        // (en fait, appendChild va attacher les enfants du frament)
         container.appendChild(fragment);
+        // retourne le conteneur après application
         return container
     });
 }
 
 /**
- * Cherche récursivement les éléments dont le contenu est à remplacer par l'application d'un template.
+ * Recherche un template à appliquer.
  * 
+ * Cette fonction va parcourir récursivement l'arborescence HTML à partir de `element`.
+ * Si un élément définit un attribut `template`ou `template_src`, le contenu de cet élément est remplacé.
+ * ` 
+ * @param {HTMLELement} element élément HTML à partir duquel commencer la recherche. 
+ * @param {*} data la donnée
  * 
- * La fonction ne se termine que quand la recherche et le templating sont terminés
- * donc que ce qui remplace element est stable.
- * 
- * Il est possible de définir la données courante au niveau d'un élément,
- * même en dehors d'un template.
- * Cette donnée n'est cependant pas utilisée pour modifier les éléments en dehors d'un template.
- *
- * Donc, les motifs `{expression}' ainsi que les attributs `template-if` et `template-foreach` sont ignorés.
- * une liste de valeur (objet Array) ou null
- * @param {HTMLElement} element élément HTML à partir duquel chercher`
- * @param {*} data donnée courante
- * 
- * @returns {Promise<HTMLElement>} la promesse de l'élément après application du template
-  */
-async function recursiveSearch(element, data) {
+ * @return {Promise<null>} quitte la fonction lorsque toute l'arborescence dont `element` est la racine a été explorée
+ */
+async function scan(element, data) {
     
-    // si on a une donnée, on peut traduire les valeurs des attributs
-    if (typeof data != 'undefined' && element.attributes) {
-        for (const attribute of element.attributes) {
-            attribute.value = replace(attribute.value, data);
-        }
-    }
-    
-    // donnée courante (autorisé n'importe où)
+    // met à jour la donnée
     data = await getData(element, data);
     
-    // récupère le template
-    const templateElement = await getTemplateElement(element);
-    // si on a un template
-    if (templateElement) {
-        // applique le template, avec la donnée courante
-        await applyTemplate(templateElement, element, data);     
+    // récupère le template à appliquer
+    const template = await getTemplate(element, data);
+
+    // si on a récupéré un template
+    if (template) {
+        // applique le template
+        // le résultat viendra remplacer le contenu de l'élément
+        await apply(template, element, data);
     }
-     
-    // pas de template : on continue la recherche récursive
+    // si pas de template, continue le scan avec les enfants
     else {
-        // lance récursivement la recherche sur chaque enfant
-        // et attend que ce soit fini
-        await Promise.all(Array.from(element.children).map( (child) => recursiveSearch(child)));
+        await Promise.all(Array.from(element.children).map(child => scan(child,data)));
     }
-    
-    return element;
-}
-    
-/**
- * Lance le moteur de template. 
- * 
- * Les trois paramètres sont optionnels.
- * 
- * Si *templateElement* est omis, le moteur cherchera récursivement dans la descendance de *container*
- * les éléments qui ont un attribut _template_ ou _template-src_.
- * 
- * La valeur par défaut de *container* est `document.body`.
- * 
- * Il n'y a pas de valeur par défaut pour *data*. Une donnée nulle est valide.
- * Cela signifie que les expressions seront interprétés avec `this == null`   
- * 
- * 
- * @param {HTMLTemplateElement | string | Promise<HTMLTemplateElement> | null} templateElement élément <template>
- * @param {HTMLElement | string | null} container élément HTML dont le contenu sera écrasé par le résultat de l'application du template
- * @param {object | number|string|symbol|bigint|boolean|null} data la donnée
- *  
- * @returns {Promise<HTMLElement>} promesse du container transformé par le moteur de template
- */
-function run(templateElement, container, data) {
-	// conteneur par défaut
-    if (container == null) container = document.body;
-    // conteneur désigné par son identifiant
-    else if (typeof container == 'string') container = document.getElementById(container);
-    
-    // si pas de template, on fait un scan du conteneur
-    if (templateElement == null) {
-        return recursiveSearch(document.body, data);
-    }
-    // si le template est indiqué par son id
-    else if (typeof templateElement == 'string') {
-    	const element = document.getElementById(templateElement);
-    	if (element == null) console.warn('template', 'template not found', templateElement);
-        return applyTemplate(element, container, data);
-    }
-    // sinon, méthode par défaut 
-    else {
-        return applyTemplate(templateElement, container, data);
-    }
+    return null;
 }
 
-export {run, fetchTemplate}
+// exporte trois fonctions :
+// - scan, généralement utilisé après chargement du document HTML : scan(document.body)
+// - apply, pour appliquer des templates en javascript
+// - fetchTemplate pour charger des templates en javascript
+export {scan, apply, fetchTemplate};
