@@ -51,6 +51,15 @@ Mais il est aussi possible de :
 Si `template-data-src`et `template-data` sont tous les deux présents, on télécharge d'abord la donnée avec `template-data-src`
 puis on la transforme en la remplaçant par le résultat de l'expression donnée par `template-data`.
 
+Par exemple, si nous avons dans notre document HTML :
+<code>
+&lt;div template="liste_clients" template-data-src="api/clients/123"/&gt;;
+...
+&lt;template id="fiche_client"&gt; ... &lt;/&gt;
+</code>
+
+Le scan du document remplacer l'élément <div> par le résultat de l'application de la données téléchargée en `api/clients/123` au template "fiche_client".
+
 ### Evaluation des expressions
 
  Lors de l'application de la donnée au template, les motifs `{expression}` dans les attributs ou dans les noeuds texte sont remplacés par le résultat de l'évaluation
