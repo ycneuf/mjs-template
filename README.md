@@ -3,7 +3,7 @@
 Moteur de template (très) simple.
 Un template est un fragment de document HTML sur lequel on vient appliquer une donnée (généralement un objet, mais toute donnée, y compris _null_ est acceptée).
  
-Les templates peuvent être dans le document HTML lui même (ce sont les éléments `<template id="id">`) ou dans des fichiers distincts.
+Les templates peuvent être dans le document HTML lui même (ce sont les éléments `<template id="id">`) ou dans des fichiers distincts.Update README.md
 
 ## Principe de fonctionnement
 
@@ -11,6 +11,15 @@ Dans les exemples, on suppose que le module a été importé de la façon suivan
 <code>
 import * as template from "some_path/template.js"
 </code>
+
+### Définir la donnée
+
+ Pour définir la donnée courante, il faut utiliser soit l'attribut `template-data`, soit l'attribute `template-data-src`.
+ - `template-data-src="url"` : la données courante est chargée depuis l'URL (format Json)
+ - `template-data="expression"` : la donnée courante est le résultat de l'évaluation de `expression``  
+ 
+Si `template-data-src`et `template-data` sont tous les deux présents, on télécharge d'abord la donnée avec `template-data-src`
+puis on la transforme en la remplaçant par le résultat de l'expression donnée par `template-data`.
 
 ### Scanner le document
  Le moteur de template recherche les éléments du document qui ont l'attribut `template` et/ou l'attribut `template-src`.
@@ -51,15 +60,6 @@ Le scan du document remplacer l'élément <div> par le résultat de l'applicatio
 Il est possible d'appliquer une donnée à un template et de remplacer un élément par le résultat de cette application.
 C'est ce que fait la fonction `template.appy(templateElement, element, data)`.
 
-### Définir la donnée
-
- Pour définir la donnée courante, il faut utiliser soit l'attribut `template-data`, soit l'attribute `template-data-src`.
- - `template-data-src="url"` : la données courante est chargée depuis l'URL (format Json)
- - `template-data="expression"` : la donnée courante est le résultat de l'évaluation de `expression``  
- 
-Si `template-data-src`et `template-data` sont tous les deux présents, on télécharge d'abord la donnée avec `template-data-src`
-puis on la transforme en la remplaçant par le résultat de l'expression donnée par `template-data`.
-
 ### Evaluation des expressions
 
  Lors de l'application de la donnée au template, les motifs `{expression}` dans les attributs ou dans les noeuds texte sont remplacés par le résultat de l'évaluation
@@ -69,11 +69,12 @@ puis on la transforme en la remplaçant par le résultat de l'expression donnée
  Elle est evaluée dans la portée globale (donc `window`, `document` et toutes les variables globales sont accessibles).
  La variable `data` contient la donnée courante.
 
- ### Autres fonctionnalités
+ ### A l'intérieur du template ...
+ 
  A l'intérieur du template, deux attributs sont disponibles.
- - `template-if="{expression}"`: ne traite l'élément que si l'expression a la valeur `true`, ou équivalente. Sinon, cet élément est ignoré.
- - `template-foreach="{expression}"` : si le résultat de l'évaluation de l'expression est un [itérable](https://developer.mozilla.org/fr/docs/Web/JavaScript/Reference/Iteration_protocols),
- clone l'élément pour chaque item de l'itérable. Sinon ignore l'élément.
+ - `template-if="expression"`: ne traite l'élément que si le résultat de l'évaluation de l'expression a la valeur `true`, ou équivalente. Sinon, cet élément est ignoré.
+ - `template-foreach="expression"` : si le résultat de l'évaluation de l'expression est un [itérable](https://developer.mozilla.org/fr/docs/Web/JavaScript/Reference/Iteration_protocols),
+ clone l'élément pour chaque item de l'itérable. Sinon ignore l'élément. A noter que l'élément est remplacé par les clones, donc si l'itérable est une liste vide, l'élément est simplement supprimé.
   
  Il est bien évidemment possible, à l'intérieur d'un template, de redéfinir la donnée courante avec `template-data` et `template-data-src` ou même de refaire un templating interne avec `template` ou `template-src`.
  
