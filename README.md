@@ -7,8 +7,6 @@ Les templates peuvent être dans le document HTML lui même (ce sont les éléme
 
 ## Principe de fonctionnement
 
-Le moteur de etemplate peut être utilisé de deux façons : recherche des éléments à remplacer dans le document HTML ou application.
-
 Dans les exemples, on suppose que le module a été importé de la façon suivante :
 <code>
 import * as template from "some_path/template.js"
@@ -33,14 +31,25 @@ Supposons un document HTML :
  &lt;/body&gt;
 &lt;/html&gt;
 </code>
-`
 
 Pour lancer le scan depuis la racine du document HTML, il suffit d'invoquer<code>template.scan(document.body);</code>.
 Mais il est aussi possible de :
 - scanner à partir d'un élément du document : <code>template.scan(document.getElementById("main");</code>
 - scanner en fournissant la donnée : <code>template.scan(document.getElementById("main"), some_data)</code>
 
+Autre, si nous avons dans notre document HTML :
+<code>
+&lt;div template="liste_clients" template-data-src="api/clients/123"/&gt;;
+...
+&lt;template id="fiche_client"&gt; ... &lt;/&gt;
+</code>
+
+Le scan du document remplacer l'élément <div> par le résultat de l'application de la données téléchargée en `api/clients/123` au template "fiche_client".
+
 ### Application
+
+Il est possible d'appliquer une donnée à un template et de remplacer un élément par le résultat de cette application.
+C'est ce que fait la fonction `template.appy(templateElement, element, data)`.
 
 ### Définir la donnée
 
@@ -51,15 +60,6 @@ Mais il est aussi possible de :
 Si `template-data-src`et `template-data` sont tous les deux présents, on télécharge d'abord la donnée avec `template-data-src`
 puis on la transforme en la remplaçant par le résultat de l'expression donnée par `template-data`.
 
-Par exemple, si nous avons dans notre document HTML :
-<code>
-&lt;div template="liste_clients" template-data-src="api/clients/123"/&gt;;
-...
-&lt;template id="fiche_client"&gt; ... &lt;/&gt;
-</code>
-
-Le scan du document remplacer l'élément <div> par le résultat de l'application de la données téléchargée en `api/clients/123` au template "fiche_client".
-
 ### Evaluation des expressions
 
  Lors de l'application de la donnée au template, les motifs `{expression}` dans les attributs ou dans les noeuds texte sont remplacés par le résultat de l'évaluation
@@ -68,7 +68,8 @@ Le scan du document remplacer l'élément <div> par le résultat de l'applicatio
  L'expression doit être une expression javascript valide.
  Elle est evaluée dans la portée globale (donc `window`, `document` et toutes les variables globales sont accessibles).
  La variable `data` contient la donnée courante.
- 
+
+ ### Autres fonctionnalités
  A l'intérieur du template, deux attributs sont disponibles.
  - `template-if="{expression}"`: ne traite l'élément que si l'expression a la valeur `true`, ou équivalente. Sinon, cet élément est ignoré.
  - `template-foreach="{expression}"` : si le résultat de l'évaluation de l'expression est un [itérable](https://developer.mozilla.org/fr/docs/Web/JavaScript/Reference/Iteration_protocols),
