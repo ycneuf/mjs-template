@@ -57,7 +57,7 @@ async function inject(text, data) {
  * Charge un template depuis une URL
 */
 async function fetchTemplate(url) {
-    return fetch(url)
+    return fetch(url, winwow.location.href)
     .then ( (response) => {
         if (response.ok) return response.text();
         else {
@@ -76,7 +76,7 @@ async function fetchTemplate(url) {
  * Charge la donnée depuis une URL
  */
 async function fetchData(url) {
-    return fetch(url)
+    return fetch(url, winwow.location.href)
     .then ( (response) => {
         if (response.ok) return response.json();
         else {
@@ -88,7 +88,7 @@ async function fetchData(url) {
 }
 
 /**
- * Récupère le template qui doit permettre de remplacer un element
+ * Récupère le template qui doit permettre de remplacer un élémént
  * 
  * @param {HTMLElement} element 
  * @returns une instance de `HTMLTemplateElement` ou `null`
