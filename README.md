@@ -50,8 +50,8 @@ Mais il est aussi possible de :
 Le moteur de template ajoutera le résultat de l'application de la données téléchargée en `api/clients/123` au template décrit dans l'élément `<template id="fiche_client">`.
 
 > <h4>Client</h4>
-> <label>Nom: </label><span>Martin</span>
-> <label>Prénom:</label><span>Jean</span>
+> <div><label>Nom: </label><span>Martin</span></div>
+> <div><label>Prénom:</label><span>Jean</span></div>
 
 ### Indicateur "traitement en cours"
 Pendant que le moteur de template traite un élément, il est possible d'afficher un élément indiquant que le traitement est en cours. C'est le rôle de la méthode `template.setBusyElementBuilder()`.
