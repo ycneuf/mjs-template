@@ -1,0 +1,11 @@
+services:
+
+    web:
+      container_name: mjs-template_web
+      build: .
+      ports:
+        - "80:80"
+      volumes:
+        - ./htdocs:/htdocs:ro
+
+

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <link rel="icon" type="image/png" href="favicon.png">
+    
+
+    <title>Hello</title>
+    
+    <script type="module" src="./index.js"></script>
+
+    <script>
+
+        function progress(element, value) {
+            console.log('time', Date.now(), 'progress', value);
+            element.setData(value);
+            if (value < 100) {
+                setTimeout(progress , 500 + Math.random(500), element, Math.min(100, value + Math.random() * 20));
+            }
+        }
+    </script>
+    
+</head>
+
+<body>
+
+    <!-- quelques tests sans template -->
+
+    <!--template-data-->
+    <h1 template-data="'Hello, world !'">{{data}}</h1>
+
+    <!-- vérifie l'échappement lors de l'injection -->
+    <p template-data="'<b>toto</b>'">{{data}}</p>
+    <hr/>
+
+    <!-- template-foreach -->
+    <ul>
+        <li template-foreach="['un','deux','trois']">{{data}}</li>
+    </ul>
+    <hr/>
+
+    <!--chargement d'un objet depuis un fichier-->
+    <div template-data-src="data.json">
+        <div>
+            <label>Identifiant:</label><span style="margin-left: 1em">{{data.id}}</span>
+        </div>
+        <div><label>Titre:</label><span style="margin-left: 1em">{{data.title}}</span></div>
+        <ul>
+            <li template-foreach="data.items">{{data}}</li>
+        </ul>
+        <p>{{data.abstract}}</p>
+    </div>
+    <hr/>
+   
+    <!-- charge les données depuis un fichier et transforme l'objet en une liste kvp
+      pour application au template kvp-list
+    -->
+    <div template-data-src="data.json" template-data="Object.entries(data).map((entry)=>{ return {key:entry[0],value:JSON.stringify(entry[1])} })">
+        <!-- remplit l'élément : le style de l'élément est conservé, le texte s'affiche en rouge -->
+        <div style="color:red" template="kvp-list" template-mode="fill"><h4>exemple</h4></div>
+        <!-- remplace l'élément : le style de l'élément est perdu,  le texte s'affiche en noir -->
+        <div style="color:red" template="kvp-list" template-mode="replace"><h4>exemple</h4></div>
+    </div>
+
+    <!-- mode fill et méthode setData(newData) -->
+     <div template="progress" template-data="0" template-mode="fill" template-epilog="progress(this, 0)"></div>
+</body>
+
+<template id="kvp-list">
+    <ul>
+        <li template-foreach="data">
+            <label>{{data.key}}</label><span style="margin-left:2em">{{data.value}}</span>
+
+        </li>
+    </ul>
+</template>
+
+<template id="progress">
+    <label>Progress:</label>
+    <progress max="100" value="{{data}}"></progress>
+</template>
+
+</html>
