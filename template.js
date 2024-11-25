@@ -39,7 +39,7 @@ function setBusyElementBuilder(callback) {
 
 function insertBusyElement(element) {
     if (_busyElementBuilder) {
-        return element.appendChild(busyElementBuilder.apply());
+        return element.appendChild(_busyElementBuilder.apply());
     } else {
         return null;
     }
@@ -331,37 +331,40 @@ async function getData(element, data) {
     return data;
 }
 
+
+/**
+ * 
+ * @param {HTMLElement} element
+ * @returns {boolean}
+ */
+function isIterable(element) {
+	return element.hasAttribute('template-foreach');
+}
+
 /**
  * Récupère la donnée à itérer.
  * 
- * @param {HTMLEle<div style="color:red" template="kvp-list" template-mode="fill"><h4>exemple</h4></div>ment} element 
+ * @param {HTMLElement} element 
  * @param {*} data la donnée
  * 
- * @returns {Promise<Iterable|null>} un itérable, ou `null` si l'élément du template n'est pas un itérateur.   
+ * @returns {Promise<Iterable|null>} un itérable 
  */
 async function getIterable(element, data) {
-    // Un élement du template est un itérateur s'il a l'attribut template-foreach
-    if (element.hasAttribute('template-foreach')) {
-        // recupère l'expression
-        const expression = consumeAttribute(element,'template-foreach');
-        // calcul la valeur de l'expression
-        const iterable = await evaluate(element, expression, data);
-       
-        // Un itérable peut être :
-        // - un objet de la classe Array
-        // - un objet qui implémente le protocole iterable
-        if ( (typeof iterable == 'object') && ( Array.isArray(iterable) || Symbol.iterator in iterable ) ) {
-                return iterable
-        }
-        else {
-            console.warn('Ignore "template-foreach" attribute in element : ', element, ' because evaluated expression is not iterable : ', iterable);
-            // retourne une liste vide
-            return [];
-        }
+    // recupère l'expression
+    const expression = consumeAttribute(element,'template-foreach');
+    // calcul la valeur de l'expression
+    const iterable = await evaluate(element, expression, data);
+   
+    // Un itérable peut être :
+    // - un objet de la classe Array
+    // - un objet qui implémente le protocole iterable
+    if ( (typeof iterable == 'object') && ( Array.isArray(iterable) || Symbol.iterator in iterable ) ) {
+            return iterable
     }
     else {
-        // retourne null pour dire que ce n'est pas un itérateur
-        return null;
+        console.warn('Ignore "template-foreach" attribute in element : ', element, ' because evaluated expression is not iterable : ', iterable);
+        // retourne une liste vide
+        return [];
     }
 }
 
@@ -452,7 +455,7 @@ async function iterate(element, iterable) {
             element.after(fragment);
         }
 
-        // supprim<div style="color:red" template="kvp-list" template-mode="fill"><h4>exemple</h4></div>e l'élément (on ne garde pas l'original !)
+        // supprime l'élément (on ne garde pas l'original !)
         element.remove();
 
         // retourne le fragment qui contient les clones
@@ -548,20 +551,23 @@ async function processElement(element, data) {
     // execute le prologue
     await executeProlog(element, data);
         
+    // itération
+    if (isIterable(element)) {
+        // met à jour la donnée
+        data = getData(element, data);
+        // iterable
+        const iterable = await getIterable(element, data);
+        // retourne le résultat de l'itération
+        return iterate(element,  iterable);
+    }
+
     // traite les attributs, i.e. remplace les {{expression}}
     // par l'évaluation de l'expression
     processAttributes(element, data);
 
     // met à jour la donnée
     data = getData(element, data);
-
-    // vérifie si on doit dupliquer cet élément
-    const iterable = await getIterable(element, data);
-    if (iterable) {
-        // retourne le résultat de l'itération
-        return iterate(element, iterable);
-    }
-
+    
     // récupère le template à utiliser pour reconstruire cet élément
     const template = await getTemplate(element, data);
     if (template) {
@@ -612,6 +618,8 @@ async function processElement(element, data) {
  * @returns {Promise<DocumentFragment>} la promesse d'un fragment de document HTML
  */
 async function create(template, data) {
+	// résoud le template
+	template = await template;
     // récupère les élements à la racine du template
     const templateContentChildren = template.content.children;
     // créé un fragment de document, vide pour l'instant
@@ -647,17 +655,25 @@ async function create(template, data) {
  * Le mode 'fill' créé un composant.
  * 
  * @params {HTMLElement|string} element élement à remplir
- * @params {HTMLTemplateE100lement} template template, ou promesse d'un template
+ * @params {HTMLTemplateElement} template template, ou promesse d'un template
  * @params {*} data la donnée, ou promesse de la donnée
  * 
  * @returns {Promise<HTMLElement>} promesse de l'élément passé en argument une fois que le remplissage est terminé
  */
 async function fill(element, template, data) {
     if (typeof element == 'string') element = document.getElementById(element);
+    // supprime le contenu prédécent
+    element.innerText = '';
+    
+    // ajoute l'indicateur "je suis occupé"
     const busyElement = insertBusyElement(element);
+
+    // applique la donnée au template
     return create(template, data)
+    // instère le résultat
     .then( (fragment) => {
         // supprime le contenu prédécent
+    	// (au cas où une autre fct asynchrone l'aurait rempli entre-temps)
         element.innerText = '';
         // ajoute le fragment 
         element.appendChild(fragment);
