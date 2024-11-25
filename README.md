@@ -96,9 +96,11 @@ Par exemple :
 Traiter un élément consiste à appliquer à l'élément indiqué la séquence suivante :
 1. vérifier la condition définie par `template-if`
 2. exécution de l'expression définie par `template-epilog'
-3. évalue les expressions dans les valeurs des attributs (les attributs du moteur de template sont pas concernés)
-4. prend en compte la nouvelle donnée courante définie par `template-data-src` et/ou `template-data`
-5. clone l'élément pour chaque instance de l'itération définie par `template-foreach`, et reprend la séquence à l'étape 6 pour chaque clone (chacun ayant une donnée différente)
+3. si c'est un élément itérable,
+- prend en compte la nouvelle donnée courante définie par `template-data-src` et/ou `template-data`
+- clone l'élément pour chaque instance de l'itération définie par `template-foreach`, et reprend la séquence à l'étape 4 pour chaque clone (chacun ayant une donnée différente)
+4. évalue les expressions dans les valeurs des attributs (les attributs du moteur de template sont pas concernés)
+5. prend en compte la nouvelle donnée courante définie par `template-data-src` et/ou `template-data`
 6. applique le template définie par `template` ou `template-src` (ce qui met fin à la séquence)
 7. traite récursivement les noeuds enfants : remplace les expressions par leur évaluation dans les noeuds textes de l'élément et applique la séquence aux éléments enfants. Les commentaires sont supprimés et 
 les autres types de noeud sont ignorés.
